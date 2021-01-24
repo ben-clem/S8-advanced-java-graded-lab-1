@@ -69,38 +69,51 @@ public class PrimeComputer {
 
         ExecutorService pool = Executors.newFixedThreadPool(availableProcessors);
 
+        List<Future<List<Long>>> list = new ArrayList<Future<List<Long>>>();
 
         for (int i = 0; i < availableProcessors; i += 1) {
+
+            System.err.println("Launching chunk " + i);
             Future<List<Long>> result = pool.submit(new MyChunkProcessor((List<Long>) chunks.toArray()[i]));
+
+            list.add(result);
+        }
+
+        for(Future<List<Long>> fut : list) {
+            try {
+                System.err.println("Adding chunk results ");
+
+                primes.addAll(fut.get());
+
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
         }
 
 
         pool.shutdown();
-        try {
-            pool.awaitTermination(1000, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
 
         return primes;
     }
 
-    public class MyChunkProcessor implements Callable<List<Long>> {
+    public static class MyChunkProcessor implements Callable<List<Long>> {
 
-        private List<Long> chunk;
+        List<Long> chunk;
+        List<Long> primes;
 
         public MyChunkProcessor(List<Long> chunk) {
             this.chunk = chunk;
+            this.primes = new ArrayList<>();
         }
 
         public List<Long> call() {
-            for (long candidate = 1; candidate < max; candidate += 1) {
+            chunk.forEach((candidate) -> {
                 if (PrimeComputerTester.isPrime(candidate)) {
                     primes.add(candidate);
                 }
-            }
+            });
 
-            return XX;
+            return primes;
         }
     }
 }
