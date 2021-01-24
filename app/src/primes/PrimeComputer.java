@@ -45,6 +45,8 @@ public class PrimeComputer {
 
         List<Long> primes = new ArrayList<>();
 
+        int multiplier = 32;
+
         /* Sequential as in the reference method: 7/12
         for (long candidate = 1; candidate < max; candidate += 1) {
           if (PrimeComputerTester.isPrime(candidate)) {
@@ -53,9 +55,11 @@ public class PrimeComputer {
         }*/
 
         int availableProcessors = Runtime.getRuntime().availableProcessors();
+        //System.out.println("av processors " + availableProcessors);
 
         //splitting the load
-        long chunkSize = (long) Math.ceil((double) max / availableProcessors); //each chunk size (rounded up)
+        long chunkSize = (long) Math.ceil((double) max / availableProcessors / multiplier); //each chunk size (rounded up)
+        //System.out.println(chunkSize);
 
         List<Long> numbers = LongStream.range(1, max - 1)
                 .boxed()
@@ -67,22 +71,20 @@ public class PrimeComputer {
                 .values();
 
 
-        ExecutorService pool = Executors.newFixedThreadPool(availableProcessors);
+        ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
         List<Future<List<Long>>> list = new ArrayList<Future<List<Long>>>();
 
-        for (int i = 0; i < availableProcessors; i += 1) {
+        for (int i = 0; i < availableProcessors * multiplier; i += 1) {
 
-            System.err.println("Launching chunk " + i);
-            Future<List<Long>> result = pool.submit(new MyChunkProcessor((List<Long>) chunks.toArray()[i]));
+            Future<List<Long>> result = pool.submit(new MyChunkProcessor((List<Long>) chunks.toArray()[i], i));
 
             list.add(result);
         }
 
-        for(Future<List<Long>> fut : list) {
+        for (Future<List<Long>> fut : list) {
             try {
-                System.err.println("Adding chunk results ");
-
+                //System.out.println("Adding chunk results ");
                 primes.addAll(fut.get());
 
             } catch (InterruptedException | ExecutionException e) {
@@ -100,10 +102,13 @@ public class PrimeComputer {
 
         List<Long> chunk;
         List<Long> primes;
+        int i;
 
-        public MyChunkProcessor(List<Long> chunk) {
+        public MyChunkProcessor(List<Long> chunk, int i) {
             this.chunk = chunk;
             this.primes = new ArrayList<>();
+            this.i = i;
+            //System.out.println("Launching chunk " + i);
         }
 
         public List<Long> call() {
@@ -112,6 +117,8 @@ public class PrimeComputer {
                     primes.add(candidate);
                 }
             });
+
+            System.out.println("Thread nb " + i + " finished");
 
             return primes;
         }
