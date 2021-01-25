@@ -25,9 +25,11 @@ public class PrimeComputerTester {
         // get test arguments
         long[] arguments = getArguments(args);
 
-        // test getPrimes (reference test - sequential)
+
+      // test getPrimes (reference test - sequential)
         TestResult reference
                 = performTest("getPrimes", arguments, PrimeComputerTester::getPrimes);
+
 
         // test computePrimes (actual test - parallel)
         TestResult computation

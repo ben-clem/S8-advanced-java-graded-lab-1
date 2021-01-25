@@ -2,10 +2,8 @@ package primes;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -45,30 +43,29 @@ public class PrimeComputer {
 
         List<Long> primes = new ArrayList<>();
 
-        int multiplier = 32;
+        int multiplier = 2;
 
-        /* Sequential as in the reference method: 7/12
-        for (long candidate = 1; candidate < max; candidate += 1) {
-          if (PrimeComputerTester.isPrime(candidate)) {
-            primes.add(candidate);
-          }
-        }*/
 
         int availableProcessors = Runtime.getRuntime().availableProcessors();
-        //System.out.println("av processors " + availableProcessors);
 
         //splitting the load
-        long chunkSize = (long) Math.ceil((double) max / availableProcessors / multiplier); //each chunk size (rounded up)
-        //System.out.println(chunkSize);
+        //long chunkSize = (long) Math.ceil((double) max / availableProcessors / multiplier); //each chunk size (rounded up)
+        List<Integer> chunkIndexes = getIdx((int) max, availableProcessors * multiplier);
+
 
         List<Long> numbers = LongStream.range(1, max - 1)
                 .boxed()
                 .collect(Collectors.toList());
 
-        final AtomicInteger counter = new AtomicInteger();
-        final Collection<List<Long>> chunks = numbers.stream()
-                .collect(Collectors.groupingBy(it -> counter.getAndIncrement() / chunkSize))
-                .values();
+
+        Collection<List<Long>> chunks = new ArrayList<List<Long>>();
+
+        int last = 0;
+        for (int i = 1; i < chunkIndexes.size(); i++) {
+            chunks.add(numbers.subList(chunkIndexes.get(i - 1), chunkIndexes.get(i)));
+
+
+        }
 
 
         ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
@@ -78,28 +75,22 @@ public class PrimeComputer {
         for (int i = 0; i < availableProcessors * multiplier; i += 1) {
 
             Future<List<Long>> result = pool.submit(new MyChunkProcessor((List<Long>) chunks.toArray()[i], i));
-
             list.add(result);
         }
 
         for (Future<List<Long>> fut : list) {
             try {
-                //System.out.println("Adding chunk results ");
                 primes.addAll(fut.get());
-
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
         }
 
-
         pool.shutdown();
-
         return primes;
     }
 
     public static class MyChunkProcessor implements Callable<List<Long>> {
-
         List<Long> chunk;
         List<Long> primes;
         int i;
@@ -108,19 +99,59 @@ public class PrimeComputer {
             this.chunk = chunk;
             this.primes = new ArrayList<>();
             this.i = i;
-            //System.out.println("Launching chunk " + i);
         }
 
         public List<Long> call() {
+            long start = System.currentTimeMillis();
             chunk.forEach((candidate) -> {
                 if (PrimeComputerTester.isPrime(candidate)) {
                     primes.add(candidate);
                 }
             });
 
-            System.out.println("Thread nb " + i + " finished");
+            long finish = System.currentTimeMillis();
+            long timeElapsed = finish - start;
 
             return primes;
         }
     }
+
+    /**
+     * Function to compute chunk indexes so that they all have the same time complexity
+     * @param n max number
+     * @param cores nb of threads
+     * @return chunks
+     */
+    public static ArrayList<Integer> getIdx(int n, int cores) {
+        long sum_per_chunk = sumArr(n);
+        sum_per_chunk = sum_per_chunk / cores;
+
+        Long sum = (long) 0;
+        ArrayList<Integer> res = new ArrayList<>();
+        res.add(0);
+        for (int i = 0; i < n; i++) {
+            sum += complexity(i);
+            if (sum > sum_per_chunk) {
+                res.add(i);
+                sum = (long) 0;
+            }
+        }
+        res.add(n - 2);
+        return res;
+    }
+
+    public static long sumArr(int n) {
+        long res = 0;
+        for (int i = 0; i < n; i++) {
+            res += complexity(i);
+        }
+        return res;
+    }
+
+    public static long complexity(int i) {
+        // We assumed the time complexity of the trial division was close to n.
+        return i;
+    }
+
 }
+
